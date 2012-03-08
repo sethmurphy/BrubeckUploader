@@ -10,7 +10,32 @@ import magic
 import md5
 from brubeck.auth import authenticated
 from brubeck.request_handling import WebMessageHandler, JSONMessageHandler
-from modules.brooklyncodebrubeck.application import lazyprop
+
+##
+## This should be in Brubeck soon
+##
+def lazyprop(method):
+    """ A nifty wrapper to only load preoperties when accessed
+    uses the lazyProperty pattern from: 
+    http://j2labs.tumblr.com/post/17669120847/lazy-properties-a-nifty-decorator
+    inspired by  a stack overflow question:
+    http://stackoverflow.com/questions/3012421/python-lazy-property-decorator
+    This is to replace initializing common variable from cookies, query string, etc .. 
+    that would be in the prepare() method.
+    THIS SHOULD BE IN BRUBECK CORE
+    """
+    attr_name = '_' + method.__name__
+    @property
+    def _lazyprop(self):
+        if not hasattr(self, attr_name):
+            attr = method(self)
+            setattr(self, attr_name, method(self))
+            # filter out our javascript nulls
+            if getattr(self, attr_name) == 'undefined':
+                setattr(self, attr_name, None)
+        return getattr(self, attr_name)
+    return _lazyprop    
+
 
 ##
 ## Our file upload handler class definitions
