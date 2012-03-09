@@ -26,41 +26,41 @@ class Uploader(object):
         """
         # make a simple get request
         response = urllib2.urlopen(url)
-    
+
         content = response.read()
-    
+
         hash = str(md5.new(url + str(time.time())).hexdigest())
         download_file_name = self.settings['TEMP_UPLOAD_DIR'] + '/' + hash
-    
+
         fd = os.open(download_file_name, os.O_RDWR|os.O_CREAT)
         os.write(fd, content)
-    
+
         # get our mime-type
         mime = magic.Magic(mime=True)
         mime_type = mime.from_file(download_file_name)
-    
+
         logging.debug("url: %s" % url)
         logging.debug("hash: %s" % hash)
         logging.debug("download_file_name: %s" % download_file_name)
         logging.debug("mime_type: %s" % mime_type)
-    
+
         if not mime_type in self.settings['ACCEPTABLE_UPLOAD_MIME_TYPES']:
             raise Exception("unacceptable mime type: %s" % mime_type)
             os.remove(download_file_name)
-    
+
         return hash
-        
+
     def create_images_for_S3(self, file_path, file_name):
         """create our standard image sizes for upload to S3
            TODO: Not very happy with image quality.
         """
         file_names = []
         image_infos = self.settings['IMAGE_INFO']
-        
+
         im = PilImage.open("%s/%s" % (file_path, file_name))
         if im.mode != "RGB":
             im = im.convert("RGB")
-    
+
         for image_info in image_infos:
             # convert to thumbnail image
             # imp = PilImage.new("RGB", im.size, (255,255,255,255))
@@ -72,21 +72,21 @@ class Uploader(object):
 
             im.save( "%s/%s%s.%s" % (file_path, file_name,image_info[2], image_info[3]), image_info[1])
             file_names.append("%s%s.%s" % (file_name, image_info[2], image_info[3]))
-    
+
         logging.debug(file_names)
         return file_names    
-    
+
     def upload_to_S3(self, file_name):
         """upload a file to S3 and return the path name"""
         # Fill these in - you get them when you sign up for S3
         file_path = self.settings['TEMP_UPLOAD_DIR']
         file_names = self.create_images_for_S3(file_path, file_name)
-        
+
         key = self.settings["AMAZON_KEY"]
         secret = self.settings["AMAZON_SECRET"]
         bucket_name = self.settings["AMAZON_BUCKET"]
         conn = boto.connect_s3(key, secret)
-    
+
         # bucket must exist
         bucket = conn.get_bucket(bucket_name)
         ##
@@ -111,12 +111,15 @@ class Uploader(object):
         #    	]
         #    }
         #""")
-        
+
         images = self.create_images_for_S3(file_path, file_name)
         for image_file_name in file_names:
             logging.debug( 'Uploading %s to Amazon S3 bucket %s' % (image_file_name, bucket_name))
             k = Key(bucket)
             k.key = image_file_name
             k.set_contents_from_filename("%s/%s" % (file_path, image_file_name))
-    
+            acl = 'public-read'
+            logging.debug("acl: %s" % acl)
+            key.set_acl(acl)
+
         return True
