@@ -120,6 +120,6 @@ class Uploader(object):
             k.set_contents_from_filename("%s/%s" % (file_path, image_file_name))
             acl = 'public-read'
             logging.debug("acl: %s" % acl)
-            key.set_acl(acl)
+            k.set_acl(acl)
 
         return True
