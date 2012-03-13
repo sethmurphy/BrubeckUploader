@@ -50,7 +50,7 @@ class Uploader(object):
 
         return hash
 
-    def create_images_for_S3(self, file_path, file_name):
+    def create_images_for_S3(self, file_path, file_name,color=(255,255,255)):
         """create our standard image sizes for upload to S3
            TODO: Not very happy with image quality.
         """
@@ -58,8 +58,12 @@ class Uploader(object):
         image_infos = self.settings['IMAGE_INFO']
 
         im = PilImage.open("%s/%s" % (file_path, file_name))
+        im.load()
         if im.mode != "RGB":
-            im = im.convert("RGB")
+            background = PilImage.new('RGB', im.size, color)
+            background.paste(im, mask=im.split()[3])
+            im = background
+            #im = im.convert("RGB")
 
         for image_info in image_infos:
             # convert to thumbnail image
