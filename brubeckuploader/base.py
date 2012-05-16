@@ -4,13 +4,14 @@
 ##
 ## Just some basic file upload/s3 methods that know about brubeck settings
 ##
-from urlparse import urlparse
-from PIL import Image as PilImage
 import os
 import logging
 import urllib2
 import md5
 import time
+from urlparse import urlparse
+from PIL import Image as PilImage
+
 import magic
 import boto
 from boto.s3.key import Key
@@ -54,11 +55,25 @@ class Uploader(object):
         """create our standard image sizes for upload to S3
            TODO: Not very happy with image quality.
         """
+        logging.debug("create_images_for_S3")
+        logging.debug("file_path: %s" % file_path)
+        logging.debug("file_name: %s" % file_name)
         file_names = []
         image_infos = self.settings['IMAGE_INFO']
-
-        im = PilImage.open("%s/%s" % (file_path, file_name))
+        filename = "%s/%s" % (file_path, file_name)
+        logging.debug("filename: %s" % filename)
+        im = PilImage.open(filename)
         im.load()
+        im = im.convert('RGBA')
+
+        im.save( "%s/%s%s.%s" % (file_path, file_name,'_o', 'png'), format='png')
+        file_names.append("%s%s.%s" % (file_name, '_o', 'png'))
+
+
+        bgcolor = PilImage.new('RGBA', size = im.size, color = color)
+
+        im = self._alpha_composite_2(im, bgcolor)
+
         if im.mode != "RGB":
             background = PilImage.new('RGB', im.size, color)
             background.paste(im, mask=im.split()[3])
@@ -68,7 +83,6 @@ class Uploader(object):
         for image_info in image_infos:
             # convert to thumbnail image
             # imp = PilImage.new("RGB", im.size, (255,255,255,255))
-            # imp = im.copy()
             #imp.paste(im)
             # [([WIDTH], [HEIGHT]), [PIL FORMAT], [POSTFIX], [EXTENSION]]
             if image_info[0] != None:
@@ -79,6 +93,15 @@ class Uploader(object):
 
         logging.debug(file_names)
         return file_names    
+
+    def _alpha_composite(self, src, dst):
+        """places a background in place of transparancy.
+        We need this because we are converting to jpeg"""
+        r, g, b, a = src.split()
+        src = PilImage.merge("RGB", (r, g, b))
+        mask = PilImage.merge("L", (a,))
+        dst.paste(src, (0, 0), mask)
+        return dst
 
     def upload_to_S3(self, file_name):
         """upload a file to S3 and return the path name"""
