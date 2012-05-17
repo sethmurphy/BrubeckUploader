@@ -72,7 +72,7 @@ class Uploader(object):
 
         bgcolor = PilImage.new('RGBA', size = im.size, color = color)
 
-        im = self._alpha_composite_2(im, bgcolor)
+        im = self._alpha_composite(im, bgcolor)
 
         if im.mode != "RGB":
             background = PilImage.new('RGB', im.size, color)
