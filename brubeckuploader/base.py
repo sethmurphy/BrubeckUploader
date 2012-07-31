@@ -12,6 +12,7 @@ import time
 from urlparse import urlparse
 from PIL import Image as PilImage
 
+import gevent
 import magic
 import boto
 from boto.s3.key import Key
@@ -54,6 +55,7 @@ class Uploader(object):
     def create_images_for_S3(self, file_path, file_name,color=(255,255,255)):
         """create our standard image sizes for upload to S3
            TODO: Not very happy with image quality.
+            peppered with gevent.sleep(0) to be a little less blocking.
         """
         logging.debug("create_images_for_S3")
         logging.debug("file_path: %s" % file_path)
@@ -71,12 +73,16 @@ class Uploader(object):
 
 
         bgcolor = PilImage.new('RGBA', size = im.size, color = color)
+        gevent.sleep(0)
 
         im = self._alpha_composite(im, bgcolor)
+        gevent.sleep(0)
 
         if im.mode != "RGB":
             background = PilImage.new('RGB', im.size, color)
+            gevent.sleep(0)
             background.paste(im, mask=im.split()[3])
+            gevent.sleep(0)
             im = background
             #im = im.convert("RGB")
 
@@ -87,8 +93,9 @@ class Uploader(object):
             # [([WIDTH], [HEIGHT]), [PIL FORMAT], [POSTFIX], [EXTENSION]]
             if image_info[0] != None:
                 im.thumbnail(image_info[0], PilImage.ANTIALIAS)
-
+            gevent.sleep(0)
             im.save( "%s/%s%s.%s" % (file_path, file_name,image_info[2], image_info[3]), image_info[1])
+            gevent.sleep(0)
             file_names.append("%s%s.%s" % (file_name, image_info[2], image_info[3]))
 
         logging.debug(file_names)
@@ -96,16 +103,22 @@ class Uploader(object):
 
     def _alpha_composite(self, src, dst):
         """places a background in place of transparancy.
-        We need this because we are converting to jpeg"""
+        We need this because we are converting to jpeg.
+        peppered with gevent.sleep(0) to be a little less blocking.
+        """
         r, g, b, a = src.split()
         src = PilImage.merge("RGB", (r, g, b))
+        gevent.sleep(0)
         mask = PilImage.merge("L", (a,))
+        gevent.sleep(0)
         dst.paste(src, (0, 0), mask)
+        gevent.sleep(0)
         return dst
 
     def upload_to_S3(self, file_name):
         """upload a file to S3 and return the path name"""
-        # Fill these in - you get them when you sign up for S3
+        logging.debug("upload_to_S3 : %s" % file_name)
+
         file_path = self.settings['TEMP_UPLOAD_DIR']
         file_names = self.create_images_for_S3(file_path, file_name)
 
@@ -148,5 +161,34 @@ class Uploader(object):
             acl = 'public-read'
             logging.debug("acl: %s" % acl)
             k.set_acl(acl)
+
+        return True
+
+    def delete_from_S3(self, file_name):
+        """Delete files originally uploaded to S3 with the give filename.
+        This is just based on a pattern from the config file, not an actual log.
+        """
+        logging.debug("delete_from_S3 : %s" % file_name)
+
+        key = self.settings["AMAZON_KEY"]
+        secret = self.settings["AMAZON_SECRET"]
+        bucket_name = self.settings["AMAZON_BUCKET"]
+        conn = boto.connect_s3(key, secret)
+        bucket = conn.get_bucket(bucket_name)
+        image_infos = self.settings['IMAGE_INFO']
+
+        for image_info in image_infos:
+            image_file_name = "%s%s.%s" % (file_name, image_info[2], image_info[3])
+            logging.debug( 'Deleting %s from Amazon S3 bucket %s' % (image_file_name, bucket_name))
+            k = Key(bucket)
+            k.key = image_file_name
+            bucket.delete_key(k)
+
+        # delete our original
+        image_file_name = "%s_o.png" % file_name
+        logging.debug( 'Deleting %s from Amazon S3 bucket %s' % (image_file_name, bucket_name))
+        k = Key(bucket)
+        k.key = image_file_name
+        bucket.delete_key(k)
 
         return True
