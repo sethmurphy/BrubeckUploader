@@ -92,10 +92,46 @@ class Uploader(object):
             #imp.paste(im)
             # [([WIDTH], [HEIGHT]), [PIL FORMAT], [POSTFIX], [EXTENSION]]
             if image_info[0] != None:
-                im.thumbnail(image_info[0], PilImage.ANTIALIAS)
-            gevent.sleep(0)
-            im.save( "%s/%s%s.%s" % (file_path, file_name,image_info[2], image_info[3]), image_info[1])
-            gevent.sleep(0)
+                width = image_info[0][0]
+                height = image_info[0][1]
+                if width == 0 or height == 0:
+                    # width or height full other scaled
+                    imsize = im.size
+                    im_width = imsize[0]
+                    im_height = imsize[1]
+                    if width == 0 and height == 0:
+                        width = im_width
+                        height = im_height
+                    elif width == 0:
+                        # use height given and scale width
+                        width = im_width * (height * 1000 / im_height) / 1000
+                    else:
+                        # use width given and scale height
+                        height = im_height * (width * 1000 / im_width) / 1000
+
+                    logging.debug("original height: %s" % im_height)
+                    logging.debug("given height:    %s" % image_info[0][1])
+                    logging.debug("new height:      %s" % height)
+
+                    logging.debug("original width:  %s" % im_width)
+                    logging.debug("given width:     %s" % image_info[0][0])
+                    logging.debug("new width:       %s" % width)
+                    nim = im.resize((width, height), PilImage.ANTIALIAS)
+                    gevent.sleep(0)
+                    nim.save( "%s/%s%s.%s" % (file_path, file_name,image_info[2], image_info[3]), image_info[1])
+                    gevent.sleep(0)
+                else:
+                    # thumb
+                    im.thumbnail((width, height), PilImage.ANTIALIAS)
+                    gevent.sleep(0)
+                    im.save( "%s/%s%s.%s" % (file_path, file_name,image_info[2], image_info[3]), image_info[1])
+                    gevent.sleep(0)
+            else:
+                # full size
+                gevent.sleep(0)
+                im.save( "%s/%s%s.%s" % (file_path, file_name,image_info[2], image_info[3]), image_info[1])
+                gevent.sleep(0)
+
             file_names.append("%s%s.%s" % (file_name, image_info[2], image_info[3]))
 
         logging.debug(file_names)
@@ -127,30 +163,34 @@ class Uploader(object):
         bucket_name = self.settings["AMAZON_BUCKET"]
         conn = boto.connect_s3(key, secret)
 
-        # bucket must exist
-        bucket = conn.get_bucket(bucket_name)
-        ##
-        ## If we wanted to make sure we have a bucket we could do this, but it is much more expensive
-        ##
-        ## create or just get our bucket
-        #bucket = conn.create_bucket(bucket_name)
-        ## Set our policy so people can view new items 
-        ## (create bucket wipes permissions every time)
-        #bucket.set_policy("""{
-        #    	"Version": "2008-10-17",
-        #    	"Statement": [
-        #    		{
-        #    			"Sid": "AddPerm",
-        #    			"Effect": "Allow",
-        #    			"Principal": {
-        #    				"AWS": "*"
-        #    			},
-        #    			"Action": "s3:GetObject",
-        #    			"Resource": "arn:aws:s3:::qoorate.brooklyncode/*"
-        #    		}
-        #    	]
-        #    }
-        #""")
+        if "INIT_BUCKET" not in self.settings or self.settings["INIT_BUCKET"] == False:
+            # bucket must exist
+            bucket = conn.get_bucket(bucket_name)
+        else:
+            ##
+            ## If we wanted to always make sure we have a bucket we could do this, 
+            ## but it is much more expensive
+            ## We should set the INIT_BCUKET flag in the config when we start running, 
+            ## then disable it when we are sure we have a bucket for performance reasons
+            ## create or just get our bucket
+            bucket = conn.create_bucket(bucket_name)
+            # Set our policy so people can view new items 
+            # (create bucket wipes permissions every time)
+            bucket.set_policy("""{
+                    "Version": "2008-10-17",
+                    "Statement": [
+                        {
+                            "Sid": "AddPerm",
+                            "Effect": "Allow",
+                            "Principal": {
+                                "AWS": "*"
+                            },
+                            "Action": "s3:GetObject",
+                            "Resource": "arn:aws:s3:::%s/*"
+                        }
+                    ]
+                }
+            """ % bucket_name)
 
         images = self.create_images_for_S3(file_path, file_name)
         for image_file_name in file_names:

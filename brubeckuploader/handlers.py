@@ -8,10 +8,12 @@ from time import time
 import json
 import magic
 import md5
+from PIL import Image as PILImage
 from brubeck.auth import authenticated
 from brubeck.request_handling import WebMessageHandler, JSONMessageHandler
 
-##
+from math import log
+
 ## This should be in Brubeck soon
 ##
 def lazyprop(method):
@@ -131,13 +133,30 @@ class TemporaryImageUploadHandler(JSONMessageHandler):
                 logging.debug("download_file_name: %s" % download_file_name)
                 logging.debug("mime_type: %s" % mime_type)
 
+                logging.debug("checking mime_type: %s" % mime_type)
                 if not mime_type in self.settings['ACCEPTABLE_UPLOAD_MIME_TYPES']:
                     raise Exception("unacceptable mime type: %s" % mime_type)
                     os.remove(download_file_name)
+                logging.debug("mime_type OK")
+
+                width, height = PILImage.open(open(download_file_name)).size
+                logging.debug("width: %s" % width)
+                logging.debug("height: %s" % height)
+
                 message = 'The file "' + fn + '" was uploaded successfully'
+
+                file_size = 100
+                human_readable_file_size = self.human_readable_file_size(file_size)
+
                 self.add_to_payload('success', True)
                 self.add_to_payload('message', message)
+                self.add_to_payload('filename', fn)
+                self.add_to_payload('file_size', file_size)
+                self.add_to_payload('human_readable_file_size', human_readable_file_size)
                 self.add_to_payload('hash', hash)
+                self.add_to_payload('mime_type', mime_type)
+                self.add_to_payload('width', width)
+                self.add_to_payload('height', height)
                 self.set_status(200)
     
             else:
@@ -150,3 +169,18 @@ class TemporaryImageUploadHandler(JSONMessageHandler):
             self.add_to_payload('error', e.message)
 
         return self.render()
+
+    
+    def human_readable_file_size(self, num):
+        """Human friendly file size"""
+        unit_list = zip(['bytes', 'kB', 'MB', 'GB', 'TB', 'PB'], [0, 0, 1, 2, 2, 2])
+        if num > 1:
+            exponent = min(int(log(num, 1024)), len(unit_list) - 1)
+            quotient = float(num) / 1024**exponent
+            unit, num_decimals = unit_list[exponent]
+            format_string = '{:.%sf} {}' % (num_decimals)
+            return format_string.format(quotient, unit)
+        if num == 0:
+            return '0 bytes'
+        if num == 1:
+            return '1 byte'
