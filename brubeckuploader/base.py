@@ -22,7 +22,7 @@ class Uploader(object):
     def __init__(self, settings):
         self.settings = settings
         
-    def download_image_from_url(self, url):
+    def download_image_from_url(self, url, hash=None):
         """downloads and saves an image from given url
         returns the MD5 name of the file needed to upload to S3
         """
@@ -30,8 +30,8 @@ class Uploader(object):
         response = urllib2.urlopen(url)
 
         content = response.read()
-
-        hash = str(md5.new(url + str(time.time())).hexdigest())
+        if hash is None:
+            hash = str(md5.new(url + str(time.time())).hexdigest())
         download_file_name = self.settings['TEMP_UPLOAD_DIR'] + '/' + hash
 
         fd = os.open(download_file_name, os.O_RDWR|os.O_CREAT)
@@ -232,3 +232,4 @@ class Uploader(object):
         bucket.delete_key(k)
 
         return True
+
