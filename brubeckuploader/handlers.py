@@ -10,7 +10,12 @@ import re
 import urllib2
 from BeautifulSoup import BeautifulSoup
 from brubeck.auth import authenticated
-from brubeck.request_handling import MessageHandler, WebMessageHandler, JSONMessageHandler
+from brubeck.request_handling import (
+    MessageHandler,
+    WebMessageHandler,
+    JSONMessageHandler,
+    BrubeckMessageHandler,
+)
 from brubeckuploader.base import Uploader
 from math import log
 from PIL import Image as PILImage
@@ -21,7 +26,7 @@ from urlparse import urlparse
 ## This should be in Brubeck soon
 ##
 def lazyprop(method):
-    """ A nifty wrapper to only load preoperties when accessed
+    """ A nifty wrapper to only load properties when accessed
     uses the lazyProperty pattern from: 
     http://j2labs.tumblr.com/post/17669120847/lazy-properties-a-nifty-decorator
     inspired by  a stack overflow question:
@@ -53,7 +58,11 @@ class BrubeckUploaderBaseHandler(MessageHandler):
     def settings(self):
         """get our settings
         """
-        return self.application.get_settings('uploader')
+        try:
+            return self.application.get_settings('uploader')
+        except:
+            pass
+        return None
 
     @lazyprop
     def uploader(self):
@@ -88,18 +97,21 @@ class BrubeckUploaderBaseHandler(MessageHandler):
         self.set_status(200)
         return self.render()
 
-    def saveFile(self, file_name, is_url=False, hash=None):
+    def saveFile(self, file_name, is_url=False, hash=None, file_content=None):
         """Save an uploaded file or downloads a file from a url and places it in the TMP directory"""
         if is_url:
-            hash = self.uploader.download_image_from_url(file_name)
+            hash = self.uploader.download_image_from_url(file_name, hash)
         else:
-            hash = str(md5.new(file_name + str(time())).hexdigest())
+            if hash is None:
+                hash = str(md5.new(file_name + str(time())).hexdigest())
 
         download_file_name = self.application.project_dir + '/' + self.settings['TEMP_UPLOAD_DIR'] + '/' + hash
         fd = os.open(download_file_name, os.O_RDWR|os.O_CREAT)
 
+        if file_content is None:
+            file_content = self.message.body
         if is_url is False:
-            os.write(fd, self.message.body)
+            os.write(fd, file_content)
             
         # get our mime-type
         mime = magic.Magic(mime=True)
@@ -122,7 +134,7 @@ class BrubeckUploaderBaseHandler(MessageHandler):
     
         message = 'The file "' + file_name + '" was uploaded successfully'
     
-        file_size = 100
+        file_size = os.fstat(fd).st_size
         human_readable_file_size = self.human_readable_file_size(file_size)
     
         self.add_to_payload('success', True)
@@ -148,7 +160,7 @@ class TemporaryImageViewHandler(WebMessageHandler, BrubeckUploaderBaseHandler):
             requested_file_name = self.application.project_dir + '/' + self.settings['TEMP_UPLOAD_DIR'] + '/' + file_name
 
             fp = open(requested_file_name)
-            file_contents =  fp.read()
+            file_content =  fp.read()
         
             # get our mime-type
             mime = magic.Magic(mime=True)
@@ -160,9 +172,9 @@ class TemporaryImageViewHandler(WebMessageHandler, BrubeckUploaderBaseHandler):
             logging.debug("mime_type: %s" % mime_type)
 
             self.set_status(200)
-            self.set_body(file_contents)
+            self.set_body(file_content)
             self.headers['Content-Type'] = mime_type
-            self.headers['Content-Length'] = len(file_contents)
+            self.headers['Content-Length'] = len(file_content)
 
         except Exception as e:
             raise
@@ -180,9 +192,9 @@ class TemporaryImageUploadHandler(JSONMessageHandler, BrubeckUploaderBaseHandler
         logging.debug("TemporaryImageUploadHandler post")
         try:
             qqfile = self.get_argument('qqfile', None)
-            file_contents = self.message.body
+            file_content = self.message.body
             logging.debug(self.settings)
-            if len(file_contents) > 0:
+            if len(file_content) > 0:
                 fn = qqfile
                 self.saveFile(fn, is_url=False)
 
@@ -352,3 +364,42 @@ class ImageURLFetcherHandler(JSONMessageHandler, BrubeckUploaderBaseHandler):
             path_parts.pop()
             url = "%s/%s/" % (base_url, path_parts.join('/'), url)
         return url
+
+class UploadHandler(BrubeckMessageHandler, BrubeckUploaderBaseHandler):
+    """A sevice to uplaod an image, process it and push it to S3"""
+    
+    def put(self):
+        logging.debug("UploadHandler put()")
+        
+        try:
+            # save the file
+            file_content = self.message.body['file_content'].decode('base64')
+            file_name = self.message.body['file_name']
+            hash = self.message.body['hash'] if 'hash' in self.message.body else None
+            if self.settings is None:
+                self._settings = self.message.body['settings']
+
+            if len(file_content) > 0:
+                self.saveFile(file_name, 
+                    is_url=False, 
+                    hash=hash, 
+                    file_content=file_content
+                )
+            
+                if self.uploader.upload_to_S3(hash):
+                    # success
+                    self.set_status(200, "Uploaded to S3!")
+                else:
+                    self.set_status(500, "Failed to upload to S3!")
+            else:
+                raise Exception('No file was uploaded')
+
+        except Exception as e:
+            raise
+            logging.debug(e.message)
+            self.set_status(500)
+            self.add_to_payload('error', e.message)
+
+
+        self.headers = {"METHOD": "response"}
+        return self.render()
