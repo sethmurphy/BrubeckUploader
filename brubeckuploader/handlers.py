@@ -14,8 +14,8 @@ from brubeck.request_handling import (
     MessageHandler,
     WebMessageHandler,
     JSONMessageHandler,
-    BrubeckMessageHandler,
 )
+from brubeck.service import ServiceMessageHandler
 from brubeckuploader.base import Uploader
 from math import log
 from PIL import Image as PILImage
@@ -365,7 +365,7 @@ class ImageURLFetcherHandler(JSONMessageHandler, BrubeckUploaderBaseHandler):
             url = "%s/%s/" % (base_url, path_parts.join('/'), url)
         return url
 
-class UploadHandler(BrubeckMessageHandler, BrubeckUploaderBaseHandler):
+class UploadHandler(ServiceMessageHandler, BrubeckUploaderBaseHandler):
     """A sevice to uplaod an image, process it and push it to S3"""
     
     def put(self):
@@ -391,6 +391,10 @@ class UploadHandler(BrubeckMessageHandler, BrubeckUploaderBaseHandler):
                     self.set_status(200, "Uploaded to S3!")
                 else:
                     self.set_status(500, "Failed to upload to S3!")
+
+                self.add_to_payload("file_name", file_name)
+                self.add_to_payload("settinggs_image_info", self.settings["IMAGE_INFO"])
+
             else:
                 raise Exception('No file was uploaded')
 
