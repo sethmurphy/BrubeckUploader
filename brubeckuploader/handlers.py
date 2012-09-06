@@ -373,13 +373,13 @@ class UploadHandler(ServiceMessageHandler, BrubeckUploaderBaseHandler):
         
         try:
             # save the file
-            file_content = self.message.body['file_content'].decode('base64')
-            file_name = self.message.body['file_name']
-            hash = self.message.body['hash'] if 'hash' in self.message.body else None
+            file_content = self.message.get_argument('file_content', '').decode('base64')
+            file_name = self.message.get_argument('file_name', None)
+            hash = self.message.get_argument('hash', None)
             if self.settings is None:
-                self._settings = self.message.body['settings']
+                self._settings = self.message.get_argument('settings', '')
 
-            if len(file_content) > 0:
+            if len(file_content) > 0 and len(self._settings) > 0:
                 self.saveFile(file_name, 
                     is_url=False, 
                     hash=hash, 

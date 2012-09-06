@@ -109,13 +109,13 @@ class Uploader(object):
                         # use width given and scale height
                         height = im_height * (width * 1000 / im_width) / 1000
 
-                    logging.debug("original height: %s" % im_height)
-                    logging.debug("given height:    %s" % image_info[0][1])
-                    logging.debug("new height:      %s" % height)
+                    #logging.debug("original height: %s" % im_height)
+                    #logging.debug("given height:    %s" % image_info[0][1])
+                    #logging.debug("new height:      %s" % height)
 
-                    logging.debug("original width:  %s" % im_width)
-                    logging.debug("given width:     %s" % image_info[0][0])
-                    logging.debug("new width:       %s" % width)
+                    #logging.debug("original width:  %s" % im_width)
+                    #logging.debug("given width:     %s" % image_info[0][0])
+                    #logging.debug("new width:       %s" % width)
                     nim = im.resize((width, height), PilImage.ANTIALIAS)
                     gevent.sleep(0)
                     nim.save( "%s/%s%s.%s" % (file_path, file_name,image_info[2], image_info[3]), image_info[1])
@@ -199,7 +199,7 @@ class Uploader(object):
             k.key = image_file_name
             k.set_contents_from_filename("%s/%s" % (file_path, image_file_name))
             acl = 'public-read'
-            logging.debug("acl: %s" % acl)
+            #logging.debug("acl: %s" % acl)
             k.set_acl(acl)
 
         return True
