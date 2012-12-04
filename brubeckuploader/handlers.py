@@ -45,7 +45,7 @@ def lazyprop(method):
             if getattr(self, attr_name) == 'undefined':
                 setattr(self, attr_name, None)
         return getattr(self, attr_name)
-    return _lazyprop    
+    return _lazyprop
 
 
 ##
@@ -67,6 +67,14 @@ class BrubeckUploaderBaseHandler(MessageHandler):
     @lazyprop
     def uploader(self):
         return Uploader(self.settings)
+
+    @lazyprop
+    def echo_parameters(self):
+        """ a list of query string parameters to echo back in the response """
+        echo_parameters = self.get_argument('echo_parameters', '')
+        echo_parameters =  echo_parameters.split(',')
+        logging.debug(echo_parameters)
+        return echo_parameters
 
     def human_readable_file_size(self, num):
         """Human friendly file size"""
@@ -112,31 +120,35 @@ class BrubeckUploaderBaseHandler(MessageHandler):
             file_content = self.message.body
         if is_url is False:
             os.write(fd, file_content)
-            
+
         # get our mime-type
         mime = magic.Magic(mime=True)
         mime_type = mime.from_file(download_file_name)
-    
+
         logging.debug("filename: %s" % file_name)
         logging.debug("hash: %s" % hash)
         logging.debug("download_file_name: %s" % download_file_name)
         logging.debug("mime_type: %s" % mime_type)
-    
+
         logging.debug("checking mime_type: %s" % mime_type)
         if not mime_type in self.settings['ACCEPTABLE_UPLOAD_MIME_TYPES']:
             raise Exception("unacceptable mime type: %s" % mime_type)
             os.remove(download_file_name)
         logging.debug("mime_type OK")
-    
+
         width, height = PILImage.open(open(download_file_name)).size
         logging.debug("width: %s" % width)
         logging.debug("height: %s" % height)
-    
+
         message = 'The file "' + file_name + '" was uploaded successfully'
-    
+
         file_size = os.fstat(fd).st_size
         human_readable_file_size = self.human_readable_file_size(file_size)
-    
+
+        # spit back our parameters sent with the file
+        for param_name in self.echo_parameters:
+            self.add_to_payload(param_name, self.get_argument(param_name, ''))
+
         self.add_to_payload('success', True)
         self.add_to_payload('message', message)
         self.add_to_payload('filename', file_name)
@@ -147,7 +159,7 @@ class BrubeckUploaderBaseHandler(MessageHandler):
         self.add_to_payload('width', width)
         self.add_to_payload('height', height)
         self.set_status(200)
-        
+
 
 class TemporaryImageViewHandler(WebMessageHandler, BrubeckUploaderBaseHandler):
     """this is built to be compatible with fileuploader.js"""
@@ -161,7 +173,7 @@ class TemporaryImageViewHandler(WebMessageHandler, BrubeckUploaderBaseHandler):
 
             fp = open(requested_file_name)
             file_content =  fp.read()
-        
+
             # get our mime-type
             mime = magic.Magic(mime=True)
             mime_type = mime.from_file(requested_file_name)
@@ -192,13 +204,13 @@ class TemporaryImageUploadHandler(JSONMessageHandler, BrubeckUploaderBaseHandler
         logging.debug("TemporaryImageUploadHandler post")
         try:
             qqfile = self.get_argument('qqfile', None)
+
             file_content = self.message.body
             logging.debug(self.settings)
             if len(file_content) > 0:
                 fn = qqfile
                 self.saveFile(fn, is_url=False)
 
-    
             else:
                 raise Exception('No file was uploaded')
 
@@ -354,8 +366,9 @@ class ImageURLFetcherHandler(JSONMessageHandler, BrubeckUploaderBaseHandler):
         logging.debug("fix_url('%s', '%s')" % (url, base_url))
         if url[0:4] == 'http':
             return url
-        parse_url = urlparse(base_url)
-        if url[0:1] == '/':
+        if url[0:2] == '//':
+            url = "%s:%s" % (urlparse(base_url)[0], url)
+        elif url[0:1] == '/':
             url = "%s%s" % (base_url, url)
         elif parse_url[2] == '':
             url = "%s/%s" % (base_url, url)
@@ -366,11 +379,11 @@ class ImageURLFetcherHandler(JSONMessageHandler, BrubeckUploaderBaseHandler):
         return url
 
 class UploadHandler(ServiceMessageHandler, BrubeckUploaderBaseHandler):
-    """A sevice to uplaod an image, process it and push it to S3"""
-    
+    """A sevice to upload an image, process it and push it to S3"""
+
     def put(self):
         logging.debug("UploadHandler put()")
-        
+
         try:
             # save the file
             file_content = self.message.get_argument('file_content', '').decode('base64')
@@ -399,10 +412,10 @@ class UploadHandler(ServiceMessageHandler, BrubeckUploaderBaseHandler):
                 raise Exception('No file was uploaded')
 
         except Exception as e:
-            raise
             logging.debug(e.message)
             self.set_status(500)
             self.add_to_payload('error', e.message)
+            raise
 
 
         self.headers = {"METHOD": "response"}

@@ -21,7 +21,8 @@ class Uploader(object):
 
     def __init__(self, settings):
         self.settings = settings
-        
+        self.conn = None
+
     def download_image_from_url(self, url, hash=None):
         """downloads and saves an image from given url
         returns the MD5 name of the file needed to upload to S3
@@ -109,33 +110,19 @@ class Uploader(object):
                         # use width given and scale height
                         height = im_height * (width * 1000 / im_width) / 1000
 
-                    #logging.debug("original height: %s" % im_height)
-                    #logging.debug("given height:    %s" % image_info[0][1])
-                    #logging.debug("new height:      %s" % height)
-
-                    #logging.debug("original width:  %s" % im_width)
-                    #logging.debug("given width:     %s" % image_info[0][0])
-                    #logging.debug("new width:       %s" % width)
                     nim = im.resize((width, height), PilImage.ANTIALIAS)
-                    gevent.sleep(0)
                     nim.save( "%s/%s%s.%s" % (file_path, file_name,image_info[2], image_info[3]), image_info[1])
-                    gevent.sleep(0)
                 else:
                     # thumb
                     im.thumbnail((width, height), PilImage.ANTIALIAS)
-                    gevent.sleep(0)
-                    im.save( "%s/%s%s.%s" % (file_path, file_name,image_info[2], image_info[3]), image_info[1])
-                    gevent.sleep(0)
             else:
                 # full size
-                gevent.sleep(0)
                 im.save( "%s/%s%s.%s" % (file_path, file_name,image_info[2], image_info[3]), image_info[1])
-                gevent.sleep(0)
 
             file_names.append("%s%s.%s" % (file_name, image_info[2], image_info[3]))
 
         logging.debug(file_names)
-        return file_names    
+        return file_name
 
     def _alpha_composite(self, src, dst):
         """places a background in place of transparancy.
@@ -151,6 +138,17 @@ class Uploader(object):
         gevent.sleep(0)
         return dst
 
+    def get_connection_s3(self):
+        """ create our s3 connection or return it if exists""" 
+        if conn is None:
+            key = self.settings["AMAZON_KEY"]
+            secret = self.settings["AMAZON_SECRET"]
+            bucket_name = self.settings["AMAZON_BUCKET"]
+            host = self.settings["S3_HOST"]
+            port = self.settings["S3_PORT"]
+            conn = boto.connect_s3(key, secret, host = host, port = port)
+        return conn
+
     def upload_to_S3(self, file_name):
         """upload a file to S3 and return the path name"""
         logging.debug("upload_to_S3 : %s" % file_name)
@@ -158,10 +156,8 @@ class Uploader(object):
         file_path = self.settings['TEMP_UPLOAD_DIR']
         file_names = self.create_images_for_S3(file_path, file_name)
 
-        key = self.settings["AMAZON_KEY"]
-        secret = self.settings["AMAZON_SECRET"]
         bucket_name = self.settings["AMAZON_BUCKET"]
-        conn = boto.connect_s3(key, secret)
+        conn = self.get_connect_s3()
 
         if "INIT_BUCKET" not in self.settings or self.settings["INIT_BUCKET"] == False:
             # bucket must exist
@@ -210,10 +206,8 @@ class Uploader(object):
         """
         logging.debug("delete_from_S3 : %s" % file_name)
 
-        key = self.settings["AMAZON_KEY"]
-        secret = self.settings["AMAZON_SECRET"]
         bucket_name = self.settings["AMAZON_BUCKET"]
-        conn = boto.connect_s3(key, secret)
+        conn = self.get_connect_s3()
         bucket = conn.get_bucket(bucket_name)
         image_infos = self.settings['IMAGE_INFO']
 
