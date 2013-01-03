@@ -71,7 +71,7 @@ class BrubeckUploaderBaseHandler(MessageHandler):
     @lazyprop
     def echo_parameters(self):
         """ a list of query string parameters to echo back in the response """
-        echo_parameters = self.get_argument('echo_parameters', '')
+        echo_parameters = self.message.get_argument('echo_parameters', '')
         echo_parameters =  echo_parameters.split(',')
         logging.debug(echo_parameters)
         return echo_parameters
@@ -147,7 +147,7 @@ class BrubeckUploaderBaseHandler(MessageHandler):
 
         # spit back our parameters sent with the file
         for param_name in self.echo_parameters:
-            self.add_to_payload(param_name, self.get_argument(param_name, ''))
+            self.add_to_payload(param_name, self.message.get_argument(param_name, ''))
 
         self.add_to_payload('success', True)
         self.add_to_payload('message', message)
@@ -203,7 +203,7 @@ class TemporaryImageUploadHandler(JSONMessageHandler, BrubeckUploaderBaseHandler
         """upload a temporary files"""
         logging.debug("TemporaryImageUploadHandler post")
         try:
-            qqfile = self.get_argument('qqfile', None)
+            qqfile = self.message.get_argument('qqfile', None)
 
             file_content = self.message.body
             logging.debug(self.settings)
@@ -229,7 +229,7 @@ class TemporaryImageFromURLUploadHandler(JSONMessageHandler, BrubeckUploaderBase
 
     @lazyprop
     def fetch_image_url(self):
-        fetch_image_url = self.get_argument('fetch_image_url', None)
+        fetch_image_url = self.message.get_argument('fetch_image_url', None)
         return fetch_image_url
 
     def post(self):
@@ -388,6 +388,7 @@ class UploadHandler(ServiceMessageHandler, BrubeckUploaderBaseHandler):
             # save the file
             file_content = self.message.get_argument('file_content', '').decode('base64')
             file_name = self.message.get_argument('file_name', None)
+            logging.debug("file_name: %s" % file_name)
             hash = self.message.get_argument('hash', None)
             if self.settings is None:
                 self._settings = self.message.get_argument('settings', '')
