@@ -87,11 +87,14 @@ class Uploader(object):
             im = background
             #im = im.convert("RGB")
 
+        logging.debug("create_images_for_S3 image_infos: %s " % image_infos)
+        file_names = []
         for image_info in image_infos:
             # convert to thumbnail image
             # imp = PilImage.new("RGB", im.size, (255,255,255,255))
             #imp.paste(im)
             # [([WIDTH], [HEIGHT]), [PIL FORMAT], [POSTFIX], [EXTENSION]]
+            logging.debug("create_images_for_S3  image_info: %s " % image_info)
             if image_info[0] != None:
                 width = image_info[0][0]
                 height = image_info[0][1]
@@ -118,11 +121,11 @@ class Uploader(object):
             else:
                 # full size
                 im.save( "%s/%s%s.%s" % (file_path, file_name,image_info[2], image_info[3]), image_info[1])
-
+            logging.debug("filename created: %s%s.%s" % (file_name, image_info[2], image_info[3]))
             file_names.append("%s%s.%s" % (file_name, image_info[2], image_info[3]))
 
-        logging.debug(file_names)
-        return file_name
+        logging.debug("create_images_for_S3 return filenames: %s " % file_names)
+        return file_names
 
     def _alpha_composite(self, src, dst):
         """places a background in place of transparancy.
@@ -140,14 +143,14 @@ class Uploader(object):
 
     def get_connection_s3(self):
         """ create our s3 connection or return it if exists""" 
-        if conn is None:
+        if self.conn is None:
             key = self.settings["AMAZON_KEY"]
             secret = self.settings["AMAZON_SECRET"]
             bucket_name = self.settings["AMAZON_BUCKET"]
             host = self.settings["S3_HOST"]
             port = self.settings["S3_PORT"]
-            conn = boto.connect_s3(key, secret, host = host, port = port)
-        return conn
+            self.conn = boto.connect_s3(key, secret, host = host, port = port)
+        return self.conn
 
     def upload_to_S3(self, file_name):
         """upload a file to S3 and return the path name"""
@@ -155,9 +158,10 @@ class Uploader(object):
 
         file_path = self.settings['TEMP_UPLOAD_DIR']
         file_names = self.create_images_for_S3(file_path, file_name)
-
+        logging.debug("file_names: %s" % file_names)
+        logging.debug("len(file_names): %s" % len(file_names))
         bucket_name = self.settings["AMAZON_BUCKET"]
-        conn = self.get_connect_s3()
+        conn = self.get_connection_s3()
 
         if "INIT_BUCKET" not in self.settings or self.settings["INIT_BUCKET"] == False:
             # bucket must exist
@@ -189,7 +193,10 @@ class Uploader(object):
             """ % bucket_name)
 
         images = self.create_images_for_S3(file_path, file_name)
+        logging.debug("file_names: %s" % file_names)
+        logging.debug("images: %s" % images)
         for image_file_name in file_names:
+            logging.debug("image_file_name: %s" % image_file_name)
             logging.debug( 'Uploading %s to Amazon S3 bucket %s' % (image_file_name, bucket_name))
             k = Key(bucket)
             k.key = image_file_name
