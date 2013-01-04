@@ -15,7 +15,7 @@ from brubeck.request_handling import (
     WebMessageHandler,
     JSONMessageHandler,
 )
-from brubeck.service import ServiceMessageHandler
+from brubeckservice.base import ServiceMessageHandler
 from brubeckuploader.base import Uploader
 from math import log
 from PIL import Image as PILImage
