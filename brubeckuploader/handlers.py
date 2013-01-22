@@ -407,7 +407,7 @@ class UploadHandler(ServiceMessageHandler, BrubeckUploaderBaseHandler):
                     self.set_status(500, "Failed to upload to S3!")
 
                 self.add_to_payload("file_name", file_name)
-                self.add_to_payload("settinggs_image_info", self.settings["IMAGE_INFO"])
+                self.add_to_payload("settings_image_info", self.settings["IMAGE_INFO"])
 
             else:
                 raise Exception('No file was uploaded')
