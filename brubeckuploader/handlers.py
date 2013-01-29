@@ -370,7 +370,7 @@ class ImageURLFetcherHandler(JSONMessageHandler, BrubeckUploaderBaseHandler):
             url = "%s:%s" % (urlparse(base_url)[0], url)
         elif url[0:1] == '/':
             url = "%s%s" % (base_url, url)
-        elif parse_url[2] == '':
+        elif url[2] == '':
             url = "%s/%s" % (base_url, url)
         else:
             path_parts = url.split('/')
