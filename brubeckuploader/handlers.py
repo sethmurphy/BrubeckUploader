@@ -268,8 +268,7 @@ class ImageURLFetcherHandler(JSONMessageHandler, BrubeckUploaderBaseHandler):
                     response = urllib2.urlopen(fetch_image_url)
                     the_page = response.read()
                     pool = BeautifulSoup(the_page)
-                    base_url = self.get_base_url(fetch_image_url)
-                    image_urls += (self.get_url_images(pool, base_url))
+                    image_urls += (self.get_url_images(pool, fetch_image_url))
 
                 except Exception as e:
                         logging.debug('Unable to fetch images for %s' % fetch_image_url);
@@ -286,7 +285,7 @@ class ImageURLFetcherHandler(JSONMessageHandler, BrubeckUploaderBaseHandler):
         self.set_status(200)
         return self.render()
 
-    def get_url_images(self, pool, base_url):
+    def get_url_images(self, pool, fetch_image_url):
         """get images urls from a BeatifulSoup 'pool'"""
         image_urls = []
         tags = pool.findAll('meta',
@@ -324,7 +323,7 @@ class ImageURLFetcherHandler(JSONMessageHandler, BrubeckUploaderBaseHandler):
                     logging.debug('img_src tag: %s' % tag)
                     url = self.screen_and_fix_url(
                             _get_tag_attr(tag, 'img_src'),
-                            base_url
+                            fetch_image_url
                         )
                     if url is not None:
                         image_urls.append(url)
@@ -336,7 +335,7 @@ class ImageURLFetcherHandler(JSONMessageHandler, BrubeckUploaderBaseHandler):
                 logging.debug('img tag: %s' % tag)
                 url = self.screen_and_fix_url(
                         _get_tag_attr(tag, 'src'),
-                        base_url
+                        fetch_image_url
                     )
                 image_urls.append(url)
 
@@ -347,13 +346,18 @@ class ImageURLFetcherHandler(JSONMessageHandler, BrubeckUploaderBaseHandler):
         parsed_url = urlparse(page_url)
         return "%s://%s" % (parsed_url[0], parsed_url[1])
 
-    def screen_and_fix_url(self, url, base_url):
-        logging.debug("screen_and_fix_url('%s', '%s')" % (url, base_url))
+    def get_base_path(self, page_url):
+        """get the base url from a url"""
+        parsed_url = urlparse(page_url)
+        return "%s://%s" % (parsed_url[0], parsed_url[1])
+
+    def screen_and_fix_url(self, url, fetch_image_url):
+        logging.debug("screen_and_fix_url('%s', '%s')" % (url, fetch_image_url))
         # first screen it
         if url is None or self.screen_url(url) == False:
             return None
         # and if needed fix it
-        return self.fix_url(url, base_url)
+        return self.fix_url(url, fetch_image_url)
 
     def screen_url(self, url):
         """we don't want things like ads"""
@@ -361,22 +365,30 @@ class ImageURLFetcherHandler(JSONMessageHandler, BrubeckUploaderBaseHandler):
             return False;
         return True
 
-    def fix_url(self, url, base_url):
+    def fix_url(self, url, fetch_image_url):
         """Give a url an absolute path if it does not have one"""
-        logging.debug("fix_url('%s', '%s')" % (url, base_url))
+        logging.debug("fix_url('%s', '%s')" % (url, fetch_image_url))
+        base_url = self.get_base_url(fetch_image_url)
+        base_path = self.get_base_path(fetch_image_url)
         if url[0:4] == 'http':
             return url
         if url[0:2] == '//':
             url = "%s:%s" % (urlparse(base_url)[0], url)
         elif url[0:1] == '/':
             url = "%s%s" % (base_url, url)
-        elif url[2] == '':
+        elif base_url[2] == '':
             url = "%s/%s" % (base_url, url)
         else:
             path_parts = url.split('/')
             path_parts.pop()
-            url = "%s/%s/" % (base_url, path_parts.join('/'), url)
+            url = "%s/%s/%s" % (base_url, self.join_list(path_parts, '/'), url)
         return url
+
+    def join_list(self, l, d = ''):
+        """Joins a list like string.join"""
+        logging.debug("join_list('%s', '%s')" % (l, d))
+        return d.join(v for v in l)
+
 
 class UploadHandler(ServiceMessageHandler, BrubeckUploaderBaseHandler):
     """A sevice to upload an image, process it and push it to S3"""
