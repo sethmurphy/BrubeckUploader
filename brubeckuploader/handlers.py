@@ -14,8 +14,13 @@ from brubeck.request_handling import (
     MessageHandler,
     WebMessageHandler,
     JSONMessageHandler,
+<<<<<<< HEAD
 )
 from brubeckservice.base import ServiceMessageHandler
+=======
+    BrubeckMessageHandler,
+)
+>>>>>>> e8b832ac4a601f8e3dc9ea138016673e28e3c1de
 from brubeckuploader.base import Uploader
 from math import log
 from PIL import Image as PILImage
@@ -120,7 +125,11 @@ class BrubeckUploaderBaseHandler(MessageHandler):
             file_content = self.message.body
         if is_url is False:
             os.write(fd, file_content)
+<<<<<<< HEAD
 
+=======
+            
+>>>>>>> e8b832ac4a601f8e3dc9ea138016673e28e3c1de
         # get our mime-type
         mime = magic.Magic(mime=True)
         mime_type = mime.from_file(download_file_name)
@@ -141,7 +150,11 @@ class BrubeckUploaderBaseHandler(MessageHandler):
         logging.debug("height: %s" % height)
 
         message = 'The file "' + file_name + '" was uploaded successfully'
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> e8b832ac4a601f8e3dc9ea138016673e28e3c1de
         file_size = os.fstat(fd).st_size
         human_readable_file_size = self.human_readable_file_size(file_size)
 
@@ -173,7 +186,11 @@ class TemporaryImageViewHandler(WebMessageHandler, BrubeckUploaderBaseHandler):
 
             fp = open(requested_file_name)
             file_content =  fp.read()
+<<<<<<< HEAD
 
+=======
+        
+>>>>>>> e8b832ac4a601f8e3dc9ea138016673e28e3c1de
             # get our mime-type
             mime = magic.Magic(mime=True)
             mime_type = mime.from_file(requested_file_name)
@@ -203,8 +220,12 @@ class TemporaryImageUploadHandler(JSONMessageHandler, BrubeckUploaderBaseHandler
         """upload a temporary files"""
         logging.debug("TemporaryImageUploadHandler post")
         try:
+<<<<<<< HEAD
             qqfile = self.message.get_argument('qqfile', None)
 
+=======
+            qqfile = self.get_argument('qqfile', None)
+>>>>>>> e8b832ac4a601f8e3dc9ea138016673e28e3c1de
             file_content = self.message.body
             logging.debug(self.settings)
             if len(file_content) > 0:
@@ -384,6 +405,7 @@ class ImageURLFetcherHandler(JSONMessageHandler, BrubeckUploaderBaseHandler):
             url = "%s/%s/%s" % (base_url, self.join_list(path_parts, '/'), url)
         return url
 
+<<<<<<< HEAD
     def join_list(self, l, d = ''):
         """Joins a list like string.join"""
         logging.debug("join_list('%s', '%s')" % (l, d))
@@ -406,6 +428,23 @@ class UploadHandler(ServiceMessageHandler, BrubeckUploaderBaseHandler):
                 self._settings = self.message.get_argument('settings', '')
 
             if len(file_content) > 0 and len(self._settings) > 0:
+=======
+class UploadHandler(BrubeckMessageHandler, BrubeckUploaderBaseHandler):
+    """A sevice to uplaod an image, process it and push it to S3"""
+    
+    def put(self):
+        logging.debug("UploadHandler put()")
+        
+        try:
+            # save the file
+            file_content = self.message.body['file_content'].decode('base64')
+            file_name = self.message.body['file_name']
+            hash = self.message.body['hash'] if 'hash' in self.message.body else None
+            if self.settings is None:
+                self._settings = self.message.body['settings']
+
+            if len(file_content) > 0:
+>>>>>>> e8b832ac4a601f8e3dc9ea138016673e28e3c1de
                 self.saveFile(file_name, 
                     is_url=False, 
                     hash=hash, 
@@ -417,14 +456,18 @@ class UploadHandler(ServiceMessageHandler, BrubeckUploaderBaseHandler):
                     self.set_status(200, "Uploaded to S3!")
                 else:
                     self.set_status(500, "Failed to upload to S3!")
+<<<<<<< HEAD
 
                 self.add_to_payload("file_name", file_name)
                 self.add_to_payload("settings_image_info", self.settings["IMAGE_INFO"])
 
+=======
+>>>>>>> e8b832ac4a601f8e3dc9ea138016673e28e3c1de
             else:
                 raise Exception('No file was uploaded')
 
         except Exception as e:
+<<<<<<< HEAD
             logging.debug(e.message)
             self.set_status(500)
             self.add_to_payload('error', e.message)
@@ -433,3 +476,13 @@ class UploadHandler(ServiceMessageHandler, BrubeckUploaderBaseHandler):
 
         self.headers = {"METHOD": "response"}
         return self.render()
+=======
+            raise
+            logging.debug(e.message)
+            self.set_status(500)
+            self.add_to_payload('error', e.message)
+
+
+        self.headers = {"METHOD": "response"}
+        return self.render()
+>>>>>>> e8b832ac4a601f8e3dc9ea138016673e28e3c1de
