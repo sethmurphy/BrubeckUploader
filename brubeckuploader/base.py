@@ -87,15 +87,19 @@ class Uploader(object):
             im = background
             #im = im.convert("RGB")
 
-        logging.debug("create_images_for_S3 image_infos: %s " % image_infos)
+        logging.debug("create_images_for_S3 image_infos: %s " % str(image_infos))
         file_names = []
         for image_info in image_infos:
             # convert to thumbnail image
             # imp = PilImage.new("RGB", im.size, (255,255,255,255))
             #imp.paste(im)
             # [([WIDTH], [HEIGHT]), [PIL FORMAT], [POSTFIX], [EXTENSION]]
-            logging.debug("create_images_for_S3  image_info: %s " % image_info)
+            logging.debug("create_images_for_S3  image_info: %s " % str(image_info))
             if image_info[0] != None:
+                logging.debug("image_info[0]: %s" % str(image_info[0]))
+                logging.debug("image_info[1]: %s" % str(image_info[1]))
+                logging.debug("image_info[2]: %s" % str(image_info[2]))
+                logging.debug("image_info[3]: %s" % str(image_info[3]))
                 width = image_info[0][0]
                 height = image_info[0][1]
                 if width == 0 or height == 0:
@@ -118,6 +122,7 @@ class Uploader(object):
                 else:
                     # thumb
                     im.thumbnail((width, height), PilImage.ANTIALIAS)
+                    im.save( "%s/%s%s.%s" % (file_path, file_name,image_info[2], image_info[3]), image_info[1])
             else:
                 # full size
                 im.save( "%s/%s%s.%s" % (file_path, file_name,image_info[2], image_info[3]), image_info[1])

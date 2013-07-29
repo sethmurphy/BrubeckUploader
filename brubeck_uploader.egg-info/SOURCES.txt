@@ -1,0 +1,9 @@
+setup.py
+brubeck_uploader.egg-info/PKG-INFO
+brubeck_uploader.egg-info/SOURCES.txt
+brubeck_uploader.egg-info/dependency_links.txt
+brubeck_uploader.egg-info/requires.txt
+brubeck_uploader.egg-info/top_level.txt
+brubeckuploader/__init__.py
+brubeckuploader/base.py
+brubeckuploader/handlers.py

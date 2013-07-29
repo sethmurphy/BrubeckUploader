@@ -1,15 +1,15 @@
 #!/usr/bin/env python
  
-from distutils.core import setup
+from setuptools import setup, find_packages
  
 setup(name='brubeck-uploader',
-    version='0.1.5',
+    version='0.1.6',
     description='Brubeck module for uploading files',
     author='Seth Murphy',
     author_email='seth@brooklyncode.com',
     url='http://github.com/sethmurphy/BrubeckUploader',
-    packages=['brubeckuploader'],
+    packages=find_packages(),
     install_requires=[
-        "brubeck-service >= 0.1.0",
+        "brubeck-service >= 0.1.4",
     ],
 )
