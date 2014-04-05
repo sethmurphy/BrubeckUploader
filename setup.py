@@ -1,9 +1,9 @@
 #!/usr/bin/env python
- 
+
 from setuptools import setup, find_packages
- 
+
 setup(name='brubeck-uploader',
-    version='0.1.6',
+    version='0.1.8',
     description='Brubeck module for uploading files',
     author='Seth Murphy',
     author_email='seth@brooklyncode.com',

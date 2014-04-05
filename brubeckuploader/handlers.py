@@ -27,11 +27,11 @@ from urlparse import urlparse
 ##
 def lazyprop(method):
     """ A nifty wrapper to only load properties when accessed
-    uses the lazyProperty pattern from: 
+    uses the lazyProperty pattern from:
     http://j2labs.tumblr.com/post/17669120847/lazy-properties-a-nifty-decorator
     inspired by  a stack overflow question:
     http://stackoverflow.com/questions/3012421/python-lazy-property-decorator
-    This is to replace initializing common variable from cookies, query string, etc .. 
+    This is to replace initializing common variable from cookies, query string, etc ..
     that would be in the prepare() method.
     THIS SHOULD BE IN BRUBECK CORE
     """
@@ -189,7 +189,6 @@ class TemporaryImageViewHandler(WebMessageHandler, BrubeckUploaderBaseHandler):
             self.headers['Content-Length'] = len(file_content)
 
         except Exception as e:
-            raise
             logging.debug(e.message)
             self.set_status(404)
 
@@ -224,7 +223,7 @@ class TemporaryImageUploadHandler(JSONMessageHandler, BrubeckUploaderBaseHandler
 
 
 class TemporaryImageFromURLUploadHandler(JSONMessageHandler, BrubeckUploaderBaseHandler):
-    """downloads an image give a URL and saves it to the temp directory 
+    """downloads an image give a URL and saves it to the temp directory
     this is built to be compatible with fileuploader.js"""
 
     @lazyprop
@@ -376,12 +375,8 @@ class ImageURLFetcherHandler(JSONMessageHandler, BrubeckUploaderBaseHandler):
             url = "%s:%s" % (urlparse(base_url)[0], url)
         elif url[0:1] == '/':
             url = "%s%s" % (base_url, url)
-        elif base_url[2] == '':
-            url = "%s/%s" % (base_url, url)
         else:
-            path_parts = url.split('/')
-            path_parts.pop()
-            url = "%s/%s/%s" % (base_url, self.join_list(path_parts, '/'), url)
+            url = "%s/%s" % (base_url, url)
         return url
 
     def join_list(self, l, d = ''):
@@ -406,12 +401,12 @@ class UploadHandler(ServiceMessageHandler, BrubeckUploaderBaseHandler):
                 self._settings = self.message.get_argument('settings', '')
 
             if len(file_content) > 0 and len(self._settings) > 0:
-                self.saveFile(file_name, 
-                    is_url=False, 
-                    hash=hash, 
+                self.saveFile(file_name,
+                    is_url=False,
+                    hash=hash,
                     file_content=file_content
                 )
-            
+
                 if self.uploader.upload_to_S3(hash):
                     # success
                     self.set_status(200, "Uploaded to S3!")
