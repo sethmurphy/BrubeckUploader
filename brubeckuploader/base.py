@@ -53,8 +53,10 @@ class Uploader(object):
 
         return hash
 
-    def create_images_for_S3(self, file_path, file_name,color=(255,255,255)):
+    def create_images_for_S3(self, file_path, file_name,
+                              color=(255,255,255), image_infos=None):
         """create our standard image sizes for upload to S3
+        image_infos provides settings to customise sizes.
            TODO: Not very happy with image quality.
             peppered with gevent.sleep(0) to be a little less blocking.
         """
@@ -62,7 +64,8 @@ class Uploader(object):
         logging.debug("file_path: %s" % file_path)
         logging.debug("file_name: %s" % file_name)
         file_names = []
-        image_infos = self.settings['IMAGE_INFO']
+        if image_infos is None:
+            image_infos = self.settings['IMAGE_INFO']
         filename = "%s/%s" % (file_path, file_name)
         logging.debug("filename: %s" % filename)
         im = PilImage.open(filename)
@@ -147,7 +150,7 @@ class Uploader(object):
         return dst
 
     def get_connection_s3(self):
-        """ create our s3 connection or return it if exists""" 
+        """ create our s3 connection or return it if exists"""
         if self.conn is None:
             key = self.settings["AMAZON_KEY"]
             secret = self.settings["AMAZON_SECRET"]
@@ -173,13 +176,13 @@ class Uploader(object):
             bucket = conn.get_bucket(bucket_name)
         else:
             ##
-            ## If we wanted to always make sure we have a bucket we could do this, 
+            ## If we wanted to always make sure we have a bucket we could do this,
             ## but it is much more expensive
-            ## We should set the INIT_BCUKET flag in the config when we start running, 
+            ## We should set the INIT_BCUKET flag in the config when we start running,
             ## then disable it when we are sure we have a bucket for performance reasons
             ## create or just get our bucket
             bucket = conn.create_bucket(bucket_name)
-            # Set our policy so people can view new items 
+            # Set our policy so people can view new items
             # (create bucket wipes permissions every time)
             bucket.set_policy("""{
                     "Version": "2008-10-17",
@@ -238,4 +241,3 @@ class Uploader(object):
         bucket.delete_key(k)
 
         return True
-

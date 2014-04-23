@@ -22,6 +22,12 @@ from PIL import Image as PILImage
 from time import time
 from urlparse import urlparse
 
+# list of content-type we support
+_IMAGE_CONTENT_TYPES = [
+        'image/jpeg',
+        'image/gif',
+        'image/png',
+    ]
 
 ## This should be in Brubeck soon
 ##
@@ -259,15 +265,20 @@ class ImageURLFetcherHandler(JSONMessageHandler, BrubeckUploaderBaseHandler):
 
     def get(self):
         """fetch image URL from given pages"""
-        logging.debug("ImageURLFetcherHAndler post")
+        logging.debug("ImageURLFetcherHandler get")
         try:
             image_urls = []
             for fetch_image_url in self.fetch_image_urls:
                 try:
                     response = urllib2.urlopen(fetch_image_url)
-                    the_page = response.read()
-                    pool = BeautifulSoup(the_page)
-                    image_urls += (self.get_url_images(pool, fetch_image_url))
+
+                    content_type = response.info()['content-type']
+                    if content_type in _IMAGE_CONTENT_TYPES:
+                        image_urls.append(fetch_image_url)
+                    else:
+                        the_page = response.read()
+                        pool = BeautifulSoup(the_page)
+                        image_urls += (self.get_url_images(pool, fetch_image_url))
 
                 except Exception as e:
                         logging.debug('Unable to fetch images for %s' % fetch_image_url);
@@ -287,6 +298,7 @@ class ImageURLFetcherHandler(JSONMessageHandler, BrubeckUploaderBaseHandler):
     def get_url_images(self, pool, fetch_image_url):
         """get images urls from a BeatifulSoup 'pool'"""
         image_urls = []
+        logging.debug('get_url_images %s' % fetch_image_url);
         tags = pool.findAll('meta',
                     attr={ 'property': re.compile('(?i)og:image')
                 }
