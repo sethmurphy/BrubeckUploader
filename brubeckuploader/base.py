@@ -91,7 +91,7 @@ class Uploader(object):
             #im = im.convert("RGB")
 
         logging.debug("create_images_for_S3 image_infos: %s " % str(image_infos))
-        file_names = []
+        nim = None
         for image_info in image_infos:
             # convert to thumbnail image
             # imp = PilImage.new("RGB", im.size, (255,255,255,255))
@@ -121,7 +121,15 @@ class Uploader(object):
                         height = im_height * (width * 1000 / im_width) / 1000
 
                     nim = im.resize((width, height), PilImage.ANTIALIAS)
+                    if image_info[2] == '_blur':
+                        crop_box = (0, 0, 1920, 1080)
+                        ib = nim.crop(box)
+                        for i in range(10):  # with the BLUR filter, you can blur a few times to get the effect you're seeking
+                            ib = ib.filter(ImageFilter.BLUR)
+                        nim.paste(ib, crop_box)
+                        nim = nim.filter(ImageFilter.BLUR)
                     nim.save( "%s/%s%s.%s" % (file_path, file_name,image_info[2], image_info[3]), image_info[1])
+                    nim = None
                 else:
                     # thumb
                     im.thumbnail((width, height), PilImage.ANTIALIAS)
@@ -160,12 +168,12 @@ class Uploader(object):
             self.conn = boto.connect_s3(key, secret, host = host, port = port)
         return self.conn
 
-    def upload_to_S3(self, file_name):
+    def upload_to_S3(self, file_name, image_infos = None):
         """upload a file to S3 and return the path name"""
         logging.debug("upload_to_S3 : %s" % file_name)
 
         file_path = self.settings['TEMP_UPLOAD_DIR']
-        file_names = self.create_images_for_S3(file_path, file_name)
+        file_names = self.create_images_for_S3(file_path, file_name, (255,255,255), image_infos)
         logging.debug("file_names: %s" % file_names)
         logging.debug("len(file_names): %s" % len(file_names))
         bucket_name = self.settings["AMAZON_BUCKET"]

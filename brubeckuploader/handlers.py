@@ -407,30 +407,38 @@ class UploadHandler(ServiceMessageHandler, BrubeckUploaderBaseHandler):
             # save the file
             file_content = self.message.get_argument('file_content', '').decode('base64')
             file_name = self.message.get_argument('file_name', None)
+            href = self.message.get_argument('href', None)
+
             logging.debug("file_name: %s" % file_name)
             hash = self.message.get_argument('hash', None)
             if self.settings is None:
                 self._settings = self.message.get_argument('settings', '')
 
-            if len(file_content) > 0 and len(self._settings) > 0:
+            image_infos = self.settings[self.message.get_argument('image_info_key', 'IMAGE_INFO')]
+            logging.debug("image_infos: %s" % image_infos)
+            if not href is None and (hash is None or hash != file_name):
+                self.saveFile(href,
+                    is_url=True,
+                    hash=hash,
+                )
+            elif len(file_content) > 0 and len(self._settings) > 0:
                 self.saveFile(file_name,
                     is_url=False,
                     hash=hash,
                     file_content=file_content
                 )
-
-                if self.uploader.upload_to_S3(hash):
-                    # success
-                    self.set_status(200, "Uploaded to S3!")
-                else:
-                    self.set_status(500, "Failed to upload to S3!")
-
-                self.add_to_payload("file_name", file_name)
-                self.add_to_payload("settings_image_info", self.settings["IMAGE_INFO"])
-
             else:
                 raise Exception('No file was uploaded')
 
+            if self.uploader.upload_to_S3(hash, image_infos):
+                # success
+                self.set_status(200, "Uploaded to S3!")
+            else:
+                self.set_status(500, "Failed to upload to S3!")
+
+                self.add_to_payload("file_name", file_name)
+                self.add_to_payload("settings_image_info", image_infos)
+                    
         except Exception as e:
             logging.debug(e.message)
             self.set_status(500)
