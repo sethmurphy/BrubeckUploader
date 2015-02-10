@@ -3,6 +3,6 @@
 """The Brubeck uploader module."""
 
 version = "0.1.10"
-version_info = (0, 1, 11)
+version_info = (0, 1, 12)
 __all__ = [ 'handlers',
             'base']

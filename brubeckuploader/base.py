@@ -70,22 +70,7 @@ class Uploader(object):
         filename = "%s/%s" % (file_path, file_name)
         logging.debug("path and filename: %s" % filename)
         try:
-            im = PilImage.open(filename)
-            im.load()
-            im = im.convert('RGBA')
-
-            im.save( "%s/%s%s.%s" % (file_path, file_name,'_o', 'png'), format='png')
-            file_names.append("%s%s.%s" % (file_name, '_o', 'png'))
-
-
-            bgcolor = PilImage.new('RGBA', size = im.size, color = color)
-            im = self._alpha_composite(im, bgcolor)
-            if im.mode != "RGB":
-                background = PilImage.new('RGB', im.size, color)
-                background.paste(im, mask=im.split()[3])
-                im = background
-                #im = im.convert("RGB")
-
+            im = None
             logging.debug("create_images_for_S3 image_infos: %s " % str(image_infos))
             nim = None
             for image_info in image_infos:
@@ -102,6 +87,27 @@ class Uploader(object):
                     logging.debug("create_images_for_S3 temp image already generated: %s " % temp_fullfilename)
                 else:
                     logging.debug("create_images_for_S3 generating temp image: %s " % temp_fullfilename)
+
+                    if im is None:
+                        logging.debug("create_images_for_S3  creating initial image to manipulate: %s " % str(file_name))
+                        im = PilImage.open(filename)
+                        im.load()
+                        logging.debug("create_images_for_S3  converting initial image to RGB")
+                        im = im.convert('RGBA')
+
+                        logging.debug("create_images_for_S3 saving unscaled image as png")
+                        im.save( "%s/%s%s.%s" % (file_path, file_name,'_o', 'png'), format='png')
+                        file_names.append("%s%s.%s" % (file_name, '_o', 'png'))
+
+
+                        logging.debug("create_images_for_S3 rgba conversion on initial image")
+                        bgcolor = PilImage.new('RGBA', size = im.size, color = color)
+                        im = self._alpha_composite(im, bgcolor)
+                        if im.mode != "RGB":
+                            background = PilImage.new('RGB', im.size, color)
+                            background.paste(im, mask=im.split()[3])
+                            im = background
+                            #im = im.convert("RGB")
 
                     if image_info[0] != None:
                         logging.debug("image_info[0]: %s" % str(image_info[0]))
