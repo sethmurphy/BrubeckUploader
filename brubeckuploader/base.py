@@ -101,10 +101,15 @@ class Uploader(object):
 
 
                         logging.debug("create_images_for_S3 rgba conversion on initial image")
+
+                        logging.debug("create_images_for_S3 rgba bgcolor")
                         bgcolor = PilImage.new('RGBA', size = im.size, color = color)
+                        logging.debug("create_images_for_S3 rgba _alpha_composite")
                         im = self._alpha_composite(im, bgcolor)
                         if im.mode != "RGB":
+                            logging.debug("create_images_for_S3 rgba new background")
                             background = PilImage.new('RGB', im.size, color)
+                            logging.debug("create_images_for_S3 rgba new background paste")
                             background.paste(im, mask=im.split()[3])
                             im = background
                             #im = im.convert("RGB")
@@ -131,6 +136,7 @@ class Uploader(object):
                                 # use width given and scale height
                                 height = im_height * (width * 1000 / im_width) / 1000
 
+                            logging.debug("create_images_for_S3 resizing: %s, %s" % (width, height))
                             nim = im.resize((width, height), PilImage.ANTIALIAS)
                             logging.debug(image_info[2])
                             if image_info[2] == '_blur':
@@ -141,11 +147,14 @@ class Uploader(object):
                                     ib = ib.filter(ImageFilter.BLUR)
                                 nim.paste(ib, crop_box)
                                 nim = nim.filter(ImageFilter.BLUR)
+                            logging.debug("create_images_for_S3 sving resized image")
                             nim.save(temp_fullfilename, image_info[1])
                             nim = None
                         else:
                             # thumb
+                            logging.debug("create_images_for_S3 thumbnail: %s, %s" % (width, height))
                             im.thumbnail((width, height), PilImage.ANTIALIAS)
+                            logging.debug("create_images_for_S3 thumbnail save")
                             im.save(temp_fullfilename, image_info[1])
                     else:
                         # full size
