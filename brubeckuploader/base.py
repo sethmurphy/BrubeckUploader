@@ -82,6 +82,8 @@ class Uploader(object):
 
                 temp_filename = "%s%s.%s" % (file_name,image_info[2], image_info[3])
                 temp_fullfilename = "%s/%s" % (file_path, temp_filename)
+                logging.debug("create_images_for_S3  temp_filename: %s " % temp_filename)
+                logging.debug("create_images_for_S3  temp_fullfilename: %s " % temp_fullfilename)
 
                 if os.path.isfile(temp_fullfilename):
                     logging.debug("create_images_for_S3 temp image already generated: %s " % temp_fullfilename)
