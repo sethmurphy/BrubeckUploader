@@ -163,7 +163,7 @@ class Uploader(object):
                             # full size
                             logging.debug("create_images_for_S3 fullsize save: %s, %s" % (temp_fullfilename, image_info[1]))
                             im.save(temp_fullfilename, format=image_info[1], quality=quality_val)
-                        logging.debug("filename created: %s%s.%s" % (temp_filename))
+                        logging.debug("filename created: %s" % (temp_filename))
                         file_names.append(temp_filename)
                     except Exception, ige:
                         logging.debug("image error inner loop: %s, %s" % (file_name, repr(ige)))
