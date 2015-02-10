@@ -149,17 +149,18 @@ class Uploader(object):
                                     ib = ib.filter(ImageFilter.BLUR)
                                 nim.paste(ib, crop_box)
                                 nim = nim.filter(ImageFilter.BLUR)
-                            logging.debug("create_images_for_S3 sving resized image")
+                                logging.debug("create_images_for_S3 resized save: %s, %s" % (temp_fullfilename, image_info[1]))
                             nim.save(temp_fullfilename, image_info[1])
                             nim = None
                         else:
                             # thumb
                             logging.debug("create_images_for_S3 thumbnail: %s, %s" % (width, height))
                             im.thumbnail((width, height), PilImage.ANTIALIAS)
-                            logging.debug("create_images_for_S3 thumbnail save")
+                            logging.debug("create_images_for_S3 thumbnail save: %s, %s" % (temp_fullfilename, image_info[1]))
                             im.save(temp_fullfilename, image_info[1])
                     else:
                         # full size
+                        logging.debug("create_images_for_S3 fullsize save: %s, %s" % (temp_fullfilename, image_info[1]))
                         im.save(temp_fullfilename, image_info[1])
                     logging.debug("filename created: %s%s.%s" % (temp_filename))
                     file_names.append(temp_filename)
