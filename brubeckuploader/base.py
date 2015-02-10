@@ -9,6 +9,7 @@ import logging
 import urllib2
 import md5
 import time
+import os.path
 from urlparse import urlparse
 from PIL import Image as PilImage
 
@@ -67,80 +68,89 @@ class Uploader(object):
         if image_infos is None:
             image_infos = self.settings['IMAGE_INFO']
         filename = "%s/%s" % (file_path, file_name)
-        logging.debug("filename: %s" % filename)
-        im = PilImage.open(filename)
-        im.load()
-        im = im.convert('RGBA')
+        logging.debug("path and filename: %s" % filename)
+        try:
+            im = PilImage.open(filename)
+            im.load()
+            im = im.convert('RGBA')
 
-        im.save( "%s/%s%s.%s" % (file_path, file_name,'_o', 'png'), format='png')
-        file_names.append("%s%s.%s" % (file_name, '_o', 'png'))
+            im.save( "%s/%s%s.%s" % (file_path, file_name,'_o', 'png'), format='png')
+            file_names.append("%s%s.%s" % (file_name, '_o', 'png'))
 
 
-        bgcolor = PilImage.new('RGBA', size = im.size, color = color)
-        gevent.sleep(0)
+            bgcolor = PilImage.new('RGBA', size = im.size, color = color)
+            im = self._alpha_composite(im, bgcolor)
+            if im.mode != "RGB":
+                background = PilImage.new('RGB', im.size, color)
+                background.paste(im, mask=im.split()[3])
+                im = background
+                #im = im.convert("RGB")
 
-        im = self._alpha_composite(im, bgcolor)
-        gevent.sleep(0)
+            logging.debug("create_images_for_S3 image_infos: %s " % str(image_infos))
+            nim = None
+            for image_info in image_infos:
+                # convert to thumbnail image
+                # imp = PilImage.new("RGB", im.size, (255,255,255,255))
+                #imp.paste(im)
+                # [([WIDTH], [HEIGHT]), [PIL FORMAT], [POSTFIX], [EXTENSION]]
+                logging.debug("create_images_for_S3  image_info: %s " % str(image_info))
 
-        if im.mode != "RGB":
-            background = PilImage.new('RGB', im.size, color)
-            gevent.sleep(0)
-            background.paste(im, mask=im.split()[3])
-            gevent.sleep(0)
-            im = background
-            #im = im.convert("RGB")
+                temp_filename = "%s%s.%s" % (file_name,image_info[2], image_info[3])
+                temp_fullfilename = "%s/%s" % (file_path, temp_filename)
 
-        logging.debug("create_images_for_S3 image_infos: %s " % str(image_infos))
-        nim = None
-        for image_info in image_infos:
-            # convert to thumbnail image
-            # imp = PilImage.new("RGB", im.size, (255,255,255,255))
-            #imp.paste(im)
-            # [([WIDTH], [HEIGHT]), [PIL FORMAT], [POSTFIX], [EXTENSION]]
-            logging.debug("create_images_for_S3  image_info: %s " % str(image_info))
-            if image_info[0] != None:
-                logging.debug("image_info[0]: %s" % str(image_info[0]))
-                logging.debug("image_info[1]: %s" % str(image_info[1]))
-                logging.debug("image_info[2]: %s" % str(image_info[2]))
-                logging.debug("image_info[3]: %s" % str(image_info[3]))
-                width = image_info[0][0]
-                height = image_info[0][1]
-                if width == 0 or height == 0:
-                    # width or height full other scaled
-                    imsize = im.size
-                    im_width = imsize[0]
-                    im_height = imsize[1]
-                    if width == 0 and height == 0:
-                        width = im_width
-                        height = im_height
-                    elif width == 0:
-                        # use height given and scale width
-                        width = im_width * (height * 1000 / im_height) / 1000
-                    else:
-                        # use width given and scale height
-                        height = im_height * (width * 1000 / im_width) / 1000
-
-                    nim = im.resize((width, height), PilImage.ANTIALIAS)
-                    if image_info[2] == '_blur':
-                        crop_box = (0, 0, 1920, 1080)
-                        ib = nim.crop(box)
-                        for i in range(10):  # with the BLUR filter, you can blur a few times to get the effect you're seeking
-                            ib = ib.filter(ImageFilter.BLUR)
-                        nim.paste(ib, crop_box)
-                        nim = nim.filter(ImageFilter.BLUR)
-                    nim.save( "%s/%s%s.%s" % (file_path, file_name,image_info[2], image_info[3]), image_info[1])
-                    nim = None
+                if os.path.isfile(temp_fullfilename):
+                    logging.debug("create_images_for_S3 temp image already generated: %s " % temp_fullfilename)
                 else:
-                    # thumb
-                    im.thumbnail((width, height), PilImage.ANTIALIAS)
-                    im.save( "%s/%s%s.%s" % (file_path, file_name,image_info[2], image_info[3]), image_info[1])
-            else:
-                # full size
-                im.save( "%s/%s%s.%s" % (file_path, file_name,image_info[2], image_info[3]), image_info[1])
-            logging.debug("filename created: %s%s.%s" % (file_name, image_info[2], image_info[3]))
-            file_names.append("%s%s.%s" % (file_name, image_info[2], image_info[3]))
+                    logging.debug("create_images_for_S3 generating temp image: %s " % temp_fullfilename)
 
-        logging.debug("create_images_for_S3 return filenames: %s " % file_names)
+                    if image_info[0] != None:
+                        logging.debug("image_info[0]: %s" % str(image_info[0]))
+                        logging.debug("image_info[1]: %s" % str(image_info[1]))
+                        logging.debug("image_info[2]: %s" % str(image_info[2]))
+                        logging.debug("image_info[3]: %s" % str(image_info[3]))
+                        width = image_info[0][0]
+                        height = image_info[0][1]
+                        if width == 0 or height == 0:
+                            # width or height full other scaled
+                            imsize = im.size
+                            im_width = imsize[0]
+                            im_height = imsize[1]
+                            if width == 0 and height == 0:
+                                width = im_width
+                                height = im_height
+                            elif width == 0:
+                                # use height given and scale width
+                                width = im_width * (height * 1000 / im_height) / 1000
+                            else:
+                                # use width given and scale height
+                                height = im_height * (width * 1000 / im_width) / 1000
+
+                            nim = im.resize((width, height), PilImage.ANTIALIAS)
+                            logging.debug(image_info[2])
+                            if image_info[2] == '_blur':
+                                logging.debug('_blurblurblurblur')
+                                crop_box = (0, 0, 1920, 1080)
+                                ib = nim.crop(box)
+                                for i in range(100):  # with the BLUR filter, you can blur a few times to get the effect you're seeking
+                                    ib = ib.filter(ImageFilter.BLUR)
+                                nim.paste(ib, crop_box)
+                                nim = nim.filter(ImageFilter.BLUR)
+                            nim.save(temp_fullfilename, image_info[1])
+                            nim = None
+                        else:
+                            # thumb
+                            im.thumbnail((width, height), PilImage.ANTIALIAS)
+                            im.save(temp_fullfilename, image_info[1])
+                    else:
+                        # full size
+                        im.save(temp_fullfilename, image_info[1])
+                    logging.debug("filename created: %s%s.%s" % (temp_filename))
+                    file_names.append(temp_filename)
+
+            logging.debug("create_images_for_S3 return filenames: %s " % file_names)
+        except Exception, e:
+            logging.debug(repr(e))
+
         return file_names
 
     def _alpha_composite(self, src, dst):
@@ -150,11 +160,8 @@ class Uploader(object):
         """
         r, g, b, a = src.split()
         src = PilImage.merge("RGB", (r, g, b))
-        gevent.sleep(0)
         mask = PilImage.merge("L", (a,))
-        gevent.sleep(0)
         dst.paste(src, (0, 0), mask)
-        gevent.sleep(0)
         return dst
 
     def get_connection_s3(self):
@@ -208,9 +215,9 @@ class Uploader(object):
                 }
             """ % bucket_name)
 
-        images = self.create_images_for_S3(file_path, file_name)
+        # images = self.create_images_for_S3(file_path, file_name)
         logging.debug("file_names: %s" % file_names)
-        logging.debug("images: %s" % images)
+        #logging.debug("images: %s" % images)
         for image_file_name in file_names:
             logging.debug("image_file_name: %s" % image_file_name)
             logging.debug( 'Uploading %s to Amazon S3 bucket %s' % (image_file_name, bucket_name))
