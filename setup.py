@@ -3,7 +3,7 @@
 from setuptools import setup, find_packages
 
 setup(name='brubeck-uploader',
-    version='0.1.13',
+    version='0.1.14',
     description='Brubeck module for uploading files',
     author='Seth Murphy',
     author_email='seth@brooklyncode.com',

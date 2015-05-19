@@ -70,6 +70,11 @@ class BrubeckUploaderBaseHandler(MessageHandler):
             pass
         return None
 
+    def get_setting(self, setting_name):
+        if not self.settings is None and setting_name in self.settings:
+            return self.settings[setting_name]
+        return None
+
     @lazyprop
     def uploader(self):
         return Uploader(self.settings)
@@ -81,6 +86,26 @@ class BrubeckUploaderBaseHandler(MessageHandler):
         echo_parameters =  echo_parameters.split(',')
         logging.debug(echo_parameters)
         return echo_parameters
+
+    @lazyprop
+    def init_bucket(self):
+        return self.get_setting("INIT_BUCKET")
+
+    @lazyprop
+    def amazon_key(self):
+        return self.get_setting("AMAZON_KEY")
+
+    @lazyprop
+    def amazon_secret(self):
+        return self.get_setting("AMAZON_SECRET")
+
+    @lazyprop
+    def amazon_bucket(self):
+        return self.get_setting("AMAZON_BUCKET")
+
+    @lazyprop
+    def temp_upload_bucket(self):
+        return self.get_setting("TEMP_UPLOAD_BUCKET")
 
     def human_readable_file_size(self, num):
         """Human friendly file size"""
@@ -118,12 +143,15 @@ class BrubeckUploaderBaseHandler(MessageHandler):
         else:
             if hash is None:
                 hash = str(md5.new(file_name + str(time())).hexdigest())
-
+        logging.debug("BrubeckUploader saveFile(%s,%s,%s)" % (file_name, is_url, hash))
+        logging.debug("BrubeckUploader saveFile fileContent: %s" % ("YUP, WE GOT CONTENT" if not file_content is None and len(file_content) > 0 else "NOPE"))
         download_file_name = self.application.project_dir + '/' + self.settings['TEMP_UPLOAD_DIR'] + '/' + hash
         fd = os.open(download_file_name, os.O_RDWR|os.O_CREAT)
 
         if file_content is None:
             file_content = self.message.body
+            logging.debug("BrubeckUploader saveFile fileContent from body: %s" % ("YUP, WE GOT CONTENT" if not file_content is None and len(file_content) > 0 else "NOPE"))
+
         if is_url is False:
             os.write(fd, file_content)
 
@@ -131,22 +159,32 @@ class BrubeckUploaderBaseHandler(MessageHandler):
         mime = magic.Magic(mime=True)
         mime_type = mime.from_file(download_file_name)
 
-        logging.debug("filename: %s" % file_name)
-        logging.debug("hash: %s" % hash)
-        logging.debug("download_file_name: %s" % download_file_name)
-        logging.debug("mime_type: %s" % mime_type)
+        logging.debug("BrubeckUploader saveFile filename: %s" % file_name)
+        logging.debug("BrubeckUploader saveFile hash: %s" % hash)
+        logging.debug("BrubeckUploader saveFile download_file_name: %s" % download_file_name)
+        logging.debug("BrubeckUploader saveFile mime_type: %s" % mime_type)
 
-        logging.debug("checking mime_type: %s" % mime_type)
+        logging.debug("BrubeckUploader saveFile checking mime_type: %s" % mime_type)
         if not mime_type in self.settings['ACCEPTABLE_UPLOAD_MIME_TYPES']:
-            raise Exception("unacceptable mime type: %s" % mime_type)
             os.remove(download_file_name)
-        logging.debug("mime_type OK")
+            raise Exception("BrubeckUploader saveFile unacceptable mime type: %s" % mime_type)
+        logging.debug("BrubeckUploader saveFile mime_type OK: %s" % mime_type)
 
         width, height = PILImage.open(open(download_file_name)).size
         logging.debug("width: %s" % width)
         logging.debug("height: %s" % height)
 
-        message = 'The file "' + file_name + '" was uploaded successfully'
+        message = 'The file "' + file_name + '" was uploaded successfully to filesystem'
+
+        # see if we need to save to S3 too
+        if not self.temp_upload_bucket is None:
+            full_file_name = "%s/%s/%s" % (self.application.project_dir, self.settings['TEMP_UPLOAD_DIR'],file_name)
+            logging.debug("BrubeckUploader saveFile full_file_name: %s" % full_file_name)
+
+            fd = os.open(full_file_name, os.O_RDWR|os.O_CREAT)
+            os.write(fd, file_content)
+
+            self.uploader.upload_to_S3(file_name, None, None, self.temp_upload_bucket, hash)
 
         file_size = os.fstat(fd).st_size
         human_readable_file_size = self.human_readable_file_size(file_size)
@@ -408,7 +446,18 @@ class UploadHandler(ServiceMessageHandler, BrubeckUploaderBaseHandler):
             file_content = self.message.get_argument('file_content', '').decode('base64')
             file_name = self.message.get_argument('file_name', None)
             href = self.message.get_argument('href', None)
+            arguments = {
+                "crop_x": int(round(self.message.get_argument('crop_x', 0))),
+                "crop_y": int(round(self.message.get_argument('crop_y', 0))),
+                "crop_width": int(round(self.message.get_argument('crop_width', 0))),
+                "crop_height": int(round(self.message.get_argument('crop_height', 0)))
+            }
 
+            logging.debug("new arguments: %s" % arguments)
+            logging.debug("crop_x: %s" % arguments['crop_x'])
+            logging.debug("crop_y: %s" % arguments['crop_y'])
+            logging.debug("crop_width: %s" % arguments['crop_width'])
+            logging.debug("crop_height: %s" % arguments['crop_height'])
             logging.debug("file_name: %s" % file_name)
             hash = self.message.get_argument('hash', None)
             if self.settings is None:
@@ -430,7 +479,7 @@ class UploadHandler(ServiceMessageHandler, BrubeckUploaderBaseHandler):
             else:
                 raise Exception('No file was uploaded')
 
-            if self.uploader.upload_to_S3(hash, image_infos):
+            if self.uploader.upload_to_S3(hash, image_infos, arguments):
                 # success
                 self.set_status(200, "Uploaded to S3!")
             else:
@@ -438,7 +487,7 @@ class UploadHandler(ServiceMessageHandler, BrubeckUploaderBaseHandler):
 
                 self.add_to_payload("file_name", file_name)
                 self.add_to_payload("settings_image_info", image_infos)
-                    
+
         except Exception as e:
             logging.debug(e.message)
             self.set_status(500)
