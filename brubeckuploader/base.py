@@ -28,6 +28,7 @@ class Uploader(object):
         """downloads and saves an image from given url
         returns the MD5 name of the file needed to upload to S3
         """
+        logging.debug("Uploader: download_image_from_url: %s" % url)
         # make a simple get request
         response = urllib2.urlopen(url)
 
@@ -58,8 +59,6 @@ class Uploader(object):
                               color=(255,255,255), image_infos=None, arguments = None):
         """create our standard image sizes for upload to S3
         image_infos provides settings to customise sizes.
-           TODO: Not very happy with image quality.
-            peppered with gevent.sleep(0) to be a little less blocking.
         """
         logging.debug("create_images_for_S3")
         logging.debug("file_path: %s" % file_path)
@@ -226,7 +225,6 @@ class Uploader(object):
     def _alpha_composite(self, src, dst):
         """places a background in place of transparancy.
         We need this because we are converting to jpeg.
-        peppered with gevent.sleep(0) to be a little less blocking.
         """
         r, g, b, a = src.split()
         src = PilImage.merge("RGB", (r, g, b))
@@ -245,13 +243,14 @@ class Uploader(object):
             self.conn = boto.connect_s3(key, secret, host = host, port = port)
         return self.conn
 
-    def upload_to_S3(self, file_name, image_infos = None, arguments = None, dest_bucket = None, hash=None):
+    def upload_to_S3(self, file_name, image_infos = None, arguments = None, dest_bucket = None, hash=None, extension=None):
         """upload a file to S3 and return the path name"""
         logging.debug("BrubeckUploader upload_to_S3 file_name : %s" % file_name)
         logging.debug("BrubeckUploader upload_to_S3 image_infos : %s" % image_infos)
         logging.debug("BrubeckUploader upload_to_S3 arguments : %s" % arguments)
         logging.debug("BrubeckUploader upload_to_S3 dest_bucket : %s" % dest_bucket)
-
+        if extension is None:
+            extension = ""
         file_path = self.settings['TEMP_UPLOAD_DIR']
         file_names=[]
         if not image_infos is None:
@@ -305,17 +304,28 @@ class Uploader(object):
         # images = self.create_images_for_S3(file_path, file_name)
         logging.debug("BrubeckUploader upload_to_S3 file_names: %s" % file_names)
         #logging.debug("images: %s" % images)
+        error = False
         for image_file_name in file_names:
-            logging.debug("BrubeckUploader upload_to_S3 image_file_name: %s" % image_file_name)
+            full_file_path = "%s/%s" % (file_path, image_file_name)
+            logging.debug("BrubeckUploader upload_to_S3 image_file_name: %s" % full_file_path)
             logging.debug( 'BrubeckUploader upload_to_S3 uploading %s to Amazon S3 bucket %s' % (image_file_name, bucket_name))
             k = Key(bucket)
-            k.key = image_file_name
-            k.set_contents_from_filename("%s/%s" % (file_path, image_file_name))
+            k.key = "%s%s" % (image_file_name, extension)
+            bytes_written = k.set_contents_from_filename(full_file_path)
             acl = 'public-read'
             #logging.debug("acl: %s" % acl)
             k.set_acl(acl)
+            # remove file that was uploaded
+            logging.debug("BrubeckUploader upload_to_S3 bytes_written for %s: %s" % (full_file_path, bytes_written))
+            if bytes_written > 0:
+                logging.debug("BrubeckUploader upload_to_S3 removing file from filesystem: %s" % full_file_path)
+                os.remove(full_file_path)
+            else:
+                error = True
+        if error==False:
+            os.remove("%s/%s" % (file_path, file_name))
 
-        return True
+        return error == False
 
     def delete_from_S3(self, file_name):
         """Delete files originally uploaded to S3 with the give filename.

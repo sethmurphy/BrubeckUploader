@@ -176,18 +176,19 @@ class BrubeckUploaderBaseHandler(MessageHandler):
 
         message = 'The file "' + file_name + '" was uploaded successfully to filesystem'
 
-        # see if we need to save to S3 too
-        if not self.temp_upload_bucket is None:
-            full_file_name = "%s/%s/%s" % (self.application.project_dir, self.settings['TEMP_UPLOAD_DIR'],file_name)
-            logging.debug("BrubeckUploader saveFile full_file_name: %s" % full_file_name)
-
-            fd = os.open(full_file_name, os.O_RDWR|os.O_CREAT)
-            os.write(fd, file_content)
-
-            self.uploader.upload_to_S3(file_name, None, None, self.temp_upload_bucket, hash)
-
         file_size = os.fstat(fd).st_size
         human_readable_file_size = self.human_readable_file_size(file_size)
+
+        # see if we need to save to S3 too
+        if not self.temp_upload_bucket is None:
+            full_file_name = "%s/%s/%s" % (self.application.project_dir, self.settings['TEMP_UPLOAD_DIR'],hash)
+            logging.debug("BrubeckUploader saveFile to temporary bucket: %s" % download_file_name)
+
+            #fd = os.open(full_file_name, os.O_RDWR|os.O_CREAT)
+            ##os.write(fd, file_content)
+
+            self.uploader.upload_to_S3(download_file_name, None, None, self.temp_upload_bucket, hash)
+
 
         # spit back our parameters sent with the file
         for param_name in self.echo_parameters:
